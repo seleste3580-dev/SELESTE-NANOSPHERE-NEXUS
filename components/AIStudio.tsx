@@ -198,9 +198,10 @@ const AIStudio: React.FC = () => {
     setZoom(prev => Math.max(0.5, Math.min(prev * delta, 5)));
   };
 
+  // Fixed: Corrected name from 'setIs dragging' to 'setIsDragging'
   const handleMouseDown = (e: React.MouseEvent) => {
     if (state.selectedIndex === -1) return;
-    setIs dragging(true);
+    setIsDragging(true);
     dragStart.current = { x: e.clientX - position.x, y: e.clientY - position.y };
   };
 

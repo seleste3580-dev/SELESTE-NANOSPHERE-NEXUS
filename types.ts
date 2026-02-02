@@ -49,6 +49,7 @@ export interface AIEditState {
 export interface ChatMessage {
   role: 'user' | 'model';
   text: string;
+  grounding?: any[];
 }
 
-export type AppView = 'home' | 'courses' | 'ai-studio' | 'course-detail' | 'ai-advisor' | 'lab-reports' | 'thesis-architect';
+export type AppView = 'home' | 'courses' | 'ai-studio' | 'course-detail' | 'ai-advisor' | 'lab-reports' | 'thesis-architect' | 'media-lab' | 'live-lounge';

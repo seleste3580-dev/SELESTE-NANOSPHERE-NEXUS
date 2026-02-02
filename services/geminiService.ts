@@ -1,170 +1,181 @@
 
-import { GoogleGenAI, Type } from "@google/genai";
+import { GoogleGenAI, Type, Modality } from "@google/genai";
 import { ADVISOR_SYSTEM_INSTRUCTION } from "../constants";
 
 export class GeminiService {
-  /**
-   * Always initialize GoogleGenAI using the process.env.API_KEY directly.
-   */
   private getAI() {
     return new GoogleGenAI({ apiKey: process.env.API_KEY as string });
   }
 
-  /**
-   * Aggressively strips any conversational preamble, filler, or AI meta-talk.
-   * Ensures the output starts strictly with the intended content.
-   */
   private cleanOutput(text: string): string {
     if (!text) return "";
-    
-    // Remove typical AI filler phrases and multi-sentence introductions
     let cleaned = text
       .replace(/^(Sure|Certainly|Okay|Absolutely|Here is|I've synthesized|I can help|As a specialized).*?(\n|:|\.\s)/i, '')
       .replace(/^Here is the (academic|technical|lab|thesis|requested).*?:\n/i, '')
       .trim();
-
-    // If the first line is still a repetitive "Here is...", remove it
     if (cleaned.toLowerCase().startsWith("here is the")) {
        const lines = cleaned.split('\n');
        lines.shift();
        cleaned = lines.join('\n').trim();
     }
-      
     return cleaned;
   }
 
   async editImage(base64Image: string, prompt: string, mimeType: string = 'image/png'): Promise<string | null> {
     try {
-      /**
-       * Use generateContent for image editing tasks with gemini-2.5-flash-image.
-       */
       const response = await this.getAI().models.generateContent({
         model: 'gemini-2.5-flash-image',
         contents: {
           parts: [
             { inlineData: { data: base64Image, mimeType: mimeType } },
-            { text: `TRANSFORMATION PROTOCOL: Modify this technical schematic or image based on: "${prompt}". 
-            CRITICAL: Output ONLY the image data. DO NOT provide any text, descriptions, or conversational filler.` },
+            { text: `TRANSFORMATION PROTOCOL: Modify this image: "${prompt}". Output ONLY the image part.` },
           ],
         },
       });
-      
-      // Correctly iterate through candidates and parts to find the image data.
       if (response.candidates?.[0]?.content?.parts) {
         for (const part of response.candidates[0].content.parts) {
-          if (part.inlineData) {
-            return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
-          }
+          if (part.inlineData) return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
         }
       }
       return null;
     } catch (error: any) { throw new Error(error.message); }
   }
 
-  async *generateFullLessonStream(lessonTitle: string, lessonCode: string, courseName: string): AsyncGenerator<string> {
-    const prompt = `ACT AS A SENIOR ACADEMIC EDITOR. 
-    SUBJECT: ${courseName}. 
-    MODULE: ${lessonCode} - ${lessonTitle}.
-    
-    TASK: Synthesize a full-length, publication-quality academic lecture.
-    STRICT COMPLIANCE RULES:
-    1. NO CONVERSATIONAL FILLER. START DIRECTLY WITH THE TITLE.
-    2. NO INTRODUCTIONS LIKE "Sure", "Here is", OR "Let's dive in".
-    3. USE RIGOROUS TECHNICAL LANGUAGE AND MATHEMATICAL NOTATION.
-    4. STRUCTURE: # [Title], Abstract, Core Theory, Circuit Analysis/Schematics, Mathematical Modeling, Real-World Application, Conclusion.`;
-    
-    const response = await this.getAI().models.generateContentStream({
-      model: 'gemini-3-flash-preview',
-      contents: prompt,
-      config: { 
-        systemInstruction: ADVISOR_SYSTEM_INSTRUCTION + " You are a machine that outputs ONLY structured Markdown academic content. No preamble." 
-      },
-    });
-    
-    let isFirstChunk = true;
-    for await (const chunk of response) {
-      if (chunk.text) {
-        if (isFirstChunk) {
-          const cleaned = this.cleanOutput(chunk.text);
-          yield cleaned;
-          isFirstChunk = false;
-        } else {
-          yield chunk.text;
+  async generateProImage(prompt: string, config: { aspectRatio: string; imageSize: string }): Promise<string | null> {
+    try {
+      const response = await this.getAI().models.generateContent({
+        model: 'gemini-3-pro-image-preview',
+        contents: prompt,
+        config: {
+          imageConfig: {
+            aspectRatio: config.aspectRatio as any,
+            imageSize: config.imageSize as any
+          }
+        }
+      });
+      if (response.candidates?.[0]?.content?.parts) {
+        for (const part of response.candidates[0].content.parts) {
+          if (part.inlineData) return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
         }
       }
-    }
+      return null;
+    } catch (error: any) { throw new Error(error.message); }
   }
 
-  async generateThesisDraft(title: string, faculty: string, keywords: string): Promise<string> {
-    const prompt = `FORMAL UNIVERSITY RESEARCH PROPOSAL.
-    TOPIC: ${title}.
-    FACULTY: ${faculty}.
-    KEYWORDS: ${keywords}.
-    
-    STRICT INSTRUCTION: START IMMEDIATELY WITH THE DOCUMENT CONTENT. 
-    NO GREETINGS. NO AI CHATTER. 
-    FORMAT: 
-    # RESEARCH PROPOSAL: [Title]
-    ## 1. ABSTRACT
-    ## 2. PROBLEM STATEMENT
-    ## 3. SPECIFIC OBJECTIVES
-    ## 4. THEORETICAL FRAMEWORK
-    ## 5. METHODOLOGY
-    ## 6. BIBLIOGRAPHIC DIRECTIONS`;
-    
+  async generateVideo(prompt: string, aspectRatio: '16:9' | '9:16', imageBase64?: string): Promise<string | null> {
+    try {
+      const ai = this.getAI();
+      const params: any = {
+        model: 'veo-3.1-fast-generate-preview',
+        prompt,
+        config: { numberOfVideos: 1, resolution: '720p', aspectRatio }
+      };
+      if (imageBase64) {
+        params.image = { imageBytes: imageBase64, mimeType: 'image/png' };
+      }
+      let operation = await ai.models.generateVideos(params);
+      while (!operation.done) {
+        await new Promise(resolve => setTimeout(resolve, 5000));
+        operation = await ai.operations.getVideosOperation({ operation: operation });
+      }
+      const downloadLink = operation.response?.generatedVideos?.[0]?.video?.uri;
+      if (!downloadLink) return null;
+      const resp = await fetch(`${downloadLink}&key=${process.env.API_KEY}`);
+      const blob = await resp.blob();
+      return URL.createObjectURL(blob);
+    } catch (error: any) { throw new Error(error.message); }
+  }
+
+  async analyzeMedia(prompt: string, mediaBase64: string, mimeType: string): Promise<string> {
     const response = await this.getAI().models.generateContent({
       model: 'gemini-3-pro-preview',
-      contents: prompt,
-      config: { systemInstruction: "Output ONLY the structured research document. No conversation." }
+      contents: {
+        parts: [{ inlineData: { data: mediaBase64, mimeType } }, { text: prompt }]
+      }
     });
-    // Use .text property as defined in guidelines.
-    return this.cleanOutput(response.text || "Drafting interrupted.");
+    return response.text || "Analysis failed.";
   }
 
-  async generateLabReport(expCode: string, name: string, regNo: string): Promise<string> {
-    const prompt = `OFFICIAL LABORATORY REPORT SYNTHESIS.
-    STUDENT: ${name}. REG: ${regNo}. EXP_CODE: ${expCode}.
-    
-    STRICT RULES:
-    1. START DIRECTLY WITH THE REPORT.
-    2. ZERO AI PREAMBLE.
-    3. SECTIONS: Title, Objectives, List of Apparatus, Theoretical Background, Detailed Procedure, Data Processing Logic, Error Estimation, Final Remarks.`;
-    
+  async transcribeAudio(audioBase64: string): Promise<string> {
     const response = await this.getAI().models.generateContent({
       model: 'gemini-3-flash-preview',
-      contents: prompt,
-      config: { systemInstruction: "Output ONLY the technical lab report. No greetings." }
+      contents: {
+        parts: [{ inlineData: { data: audioBase64, mimeType: 'audio/wav' } }, { text: "Transcribe this audio strictly." }]
+      }
     });
-    // Use .text property.
-    return this.cleanOutput(response.text || "Report generation failed.");
+    return response.text || "";
   }
 
-  async *askQuestionStream(question: string): AsyncGenerator<string> {
-    const response = await this.getAI().models.generateContentStream({
-      model: 'gemini-3-flash-preview',
-      contents: question,
-      config: { systemInstruction: ADVISOR_SYSTEM_INSTRUCTION + " Provide high-density technical responses. No conversational filler." },
+  async generateSpeech(text: string): Promise<string | null> {
+    const response = await this.getAI().models.generateContent({
+      model: 'gemini-2.5-flash-preview-tts',
+      contents: [{ parts: [{ text }] }],
+      config: {
+        responseModalities: [Modality.AUDIO],
+        speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Kore' } } }
+      }
     });
-    let isFirstChunk = true;
+    return response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data || null;
+  }
+
+  // Fixed: Added missing generateLabReport method to handle academic report synthesis
+  async generateLabReport(code: string, name: string, reg: string): Promise<string> {
+    const response = await this.getAI().models.generateContent({
+      model: 'gemini-3-flash-preview',
+      contents: `Synthesize a formal academic laboratory report for Experiment ID: ${code}. 
+      Scholar: ${name}. Registration: ${reg}. 
+      Follow the University of Nairobi Department of Physics reporting standards. 
+      Structure: Abstract, Objectives, Theoretical Background, Methodology, Expected Results, and Conclusion.`,
+      config: { systemInstruction: ADVISOR_SYSTEM_INSTRUCTION },
+    });
+    return response.text || "Report generation failed.";
+  }
+
+  // Fixed: Added missing generateThesisDraft method for high-fidelity research drafting
+  async generateThesisDraft(topic: string, faculty: string, keywords: string): Promise<string> {
+    const response = await this.getAI().models.generateContent({
+      model: 'gemini-3-pro-preview',
+      contents: `Architect a formal research thesis draft for the ${faculty}. 
+      Research Topic: ${topic}. 
+      Keywords: ${keywords}. 
+      Include a comprehensive Problem Statement, Research Objectives, Methodology Framework, and a Roadmap for Literature Review.`,
+      config: { systemInstruction: ADVISOR_SYSTEM_INSTRUCTION },
+    });
+    return response.text || "Thesis architecture synthesis failed.";
+  }
+
+  async *askAdvisorStream(question: string, options: { search?: boolean; maps?: boolean; complex?: boolean }): AsyncGenerator<{ text: string; grounding?: any[] }> {
+    const model = options.complex ? 'gemini-3-pro-preview' : 'gemini-3-flash-preview';
+    const config: any = {
+      systemInstruction: ADVISOR_SYSTEM_INSTRUCTION,
+      thinkingConfig: options.complex ? { thinkingBudget: 32768 } : undefined,
+    };
+    if (options.search) config.tools = [{ googleSearch: {} }];
+    if (options.maps) {
+      config.tools = [{ googleMaps: {} }];
+      // Set to 2.5 flash if maps is needed
+      if (!options.complex) (config as any).model = 'gemini-2.5-flash-lite-latest';
+    }
+
+    const response = await this.getAI().models.generateContentStream({
+      model: options.maps && !options.complex ? 'gemini-2.5-flash-lite-latest' : model,
+      contents: question,
+      config,
+    });
+
+    let acc = "";
     for await (const chunk of response) {
       if (chunk.text) {
-        if (isFirstChunk) {
-          yield this.cleanOutput(chunk.text);
-          isFirstChunk = false;
-        } else {
-          yield chunk.text;
-        }
+        acc += chunk.text;
+        yield { text: acc, grounding: chunk.candidates?.[0]?.groundingMetadata?.groundingChunks };
       }
     }
   }
 
   async generateSlides(lessonTitle: string, lessonCode: string, courseName: string): Promise<any[]> {
-    const prompt = `Generate a 10-slide academic deck for: ${lessonCode} - ${lessonTitle}. 
-    Return strictly JSON. No text before or after.`;
-    
     const response = await this.getAI().models.generateContent({
       model: 'gemini-3-flash-preview',
-      contents: prompt,
+      contents: `Generate a 10-slide academic deck for: ${lessonCode} - ${lessonTitle}. JSON ONLY.`,
       config: {
         responseMimeType: "application/json",
         responseSchema: {
@@ -176,14 +187,21 @@ export class GeminiService {
               points: { type: Type.ARRAY, items: { type: Type.STRING } },
               footer: { type: Type.STRING }
             },
-            // Added propertyOrdering as per Type.OBJECT guidelines.
             propertyOrdering: ["title", "points", "footer"]
           }
         }
       },
     });
-    // Access response.text property and trim for safety.
     return JSON.parse(response.text?.trim() || "[]");
+  }
+
+  async *generateFullLessonStream(lessonTitle: string, lessonCode: string, courseName: string): AsyncGenerator<string> {
+    const response = await this.getAI().models.generateContentStream({
+      model: 'gemini-3-flash-preview',
+      contents: `SUBJECT: ${courseName}. MODULE: ${lessonCode} - ${lessonTitle}. Synthesize a full academic lecture. Markdown only.`,
+      config: { systemInstruction: ADVISOR_SYSTEM_INSTRUCTION },
+    });
+    for await (const chunk of response) { if (chunk.text) yield chunk.text; }
   }
 }
 
