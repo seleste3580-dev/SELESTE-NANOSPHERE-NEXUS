@@ -1,0 +1,7 @@
+{
+  "name": "Seleste NanoSphere: The Academic Nexus",
+  "description": "An elite academic portal for Microprocessor Technology and Instrumentation, featuring comprehensive curricula from Bachelor to Post-Doctoral levels with integrated AI tools.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}

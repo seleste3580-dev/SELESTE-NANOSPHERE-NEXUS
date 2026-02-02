@@ -1,0 +1,124 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Seleste NanoSphere</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #050505;
+            color: #e0e0e0;
+            margin: 0;
+            overflow-x: hidden;
+        }
+        .neon-border {
+            box-shadow: 0 0 10px rgba(0, 242, 255, 0.5), inset 0 0 5px rgba(0, 242, 255, 0.2);
+            border: 1px solid rgba(0, 242, 255, 0.5);
+        }
+        .neon-text-cyan {
+            text-shadow: 0 0 8px rgba(0, 242, 255, 0.8);
+            color: #00f2ff;
+        }
+        .neon-text-magenta {
+            text-shadow: 0 0 8px rgba(255, 0, 255, 0.8);
+            color: #ff00ff;
+        }
+        .glass-panel {
+            background: rgba(15, 15, 20, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #050505;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #1a1a1a;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #333;
+        }
+
+        .academic-article {
+            line-height: 1.8;
+            letter-spacing: -0.01em;
+        }
+
+        @keyframes shimmer {
+          0% { background-position: -1000px 0; }
+          100% { background-position: 1000px 0; }
+        }
+        .animate-shimmer {
+          background: linear-gradient(to right, rgba(255,255,255,0) 0%, rgba(255,255,255,0.05) 50%, rgba(255,255,255,0) 100%);
+          background-size: 1000px 100%;
+          animation: shimmer 2s infinite linear;
+        }
+
+        /* Print Media Styles */
+        @media print {
+            body {
+                background: white !important;
+                color: black !important;
+                font-family: 'Libre Baskerville', serif !important;
+            }
+            .print\:hidden {
+                display: none !important;
+            }
+            #print-header {
+                display: block !important;
+                text-align: center;
+                border-bottom: 2px solid black;
+                margin-bottom: 30px;
+                padding-bottom: 20px;
+            }
+            .glass-panel {
+                background: transparent !important;
+                border: none !important;
+                box-shadow: none !important;
+                backdrop-filter: none !important;
+                padding: 0 !important;
+            }
+            .prose {
+                color: black !important;
+                max-width: 100% !important;
+                font-size: 12pt !important;
+            }
+            h1, h2, h3, h4 {
+                color: black !important;
+                page-break-after: avoid;
+            }
+            a {
+                text-decoration: none !important;
+                color: black !important;
+            }
+        }
+        #print-header {
+            display: none;
+        }
+    </style>
+<script type="importmap">
+{
+  "imports": {
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+    "@google/genai": "https://esm.sh/@google/genai@^1.38.0",
+    "react/": "https://esm.sh/react@^19.2.3/",
+    "react": "https://esm.sh/react@^19.2.3"
+  }
+}
+</script>
+</head>
+<body>
+    <div id="print-header">
+        <h1 style="font-size: 24pt; margin-bottom: 5px;">UNIVERSITY OF NAIROBI</h1>
+        <p style="font-size: 10pt; text-transform: uppercase; letter-spacing: 2px;">Academic Repository | Seleste NanoSphere Nexus</p>
+    </div>
+    <div id="root"></div>
+</body>
+</html>
