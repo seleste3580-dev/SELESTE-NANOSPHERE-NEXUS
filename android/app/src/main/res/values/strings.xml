@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Seleste NanoSphere</string>
+    <string name="title_activity_main">Seleste NanoSphere</string>
+    <string name="package_name">com.seleste.nanosphere</string>
+    <string name="custom_url_scheme">com.seleste.nanosphere</string>
+</resources>
